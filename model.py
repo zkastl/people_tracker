@@ -24,7 +24,7 @@ class CNN(nn.Module):
         self.optimizer = optim.Adam(self.parameters(), lr=self.lr)
 
         # other parameters
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        #self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
     def forward(self, x):
