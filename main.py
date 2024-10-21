@@ -2,17 +2,22 @@ import time
 import torch
 import torchvision
 import torchvision.transforms as transforms
+import tracemalloc
+import torch.nn as nn
 
-from model import CNN
+from models import CNN, MobileNetV2
 
-if __name__ == "__main__":
+BYTE_TO_MEGABYTE = 1048576
+
+def main(model:nn.Module, train:bool=True):
 
     # Set device
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    #device = 'cpu'
+    #device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = 'cpu'
+    batch_size = 64
 
     # Create the model and move it to the device
-    model = CNN().to(device)
+    nn_model = model.to(device)
 
     # Data loading and preprocessing
     transform = transforms.Compose([
@@ -22,23 +27,52 @@ if __name__ == "__main__":
 
     # Load CIFAR-10 dataset
     trainset = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
-    trainloader = torch.utils.data.DataLoader(trainset, batch_size=64, shuffle=True, num_workers=2)
+    trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=2)
 
     testset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)
-    testloader = torch.utils.data.DataLoader(testset, batch_size=64, shuffle=False, num_workers=2)
+    testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=2)
 
     # Train the model
-    t_start = time.time()
-    model.train(device=device, trainloader=trainloader, epochs=10)
-    t_end = time.time()
-    print(f'Total evaluation time: {t_end - t_start:.2f} seconds')
+    if train:
+        t_start = time.time()
+        nn_model.train(device=device, trainloader=trainloader, epochs=10)
+        t_end = time.time()
+        tr_time = t_end - t_start
+        print(f'Total training time: {tr_time:.2f} seconds')
+    else:
+        tr_time = float('nan')
 
-
+    
     # Evaluate the model
     t_start = time.time()
-    model.evaluate(device=device, testloader=testloader)
+    accuracy = model.evaluate(device=device, testloader=testloader)
     t_end = time.time()
-    print(f'Total evaluation time: {t_end - t_start:.2f} seconds')
+    if_time = t_end - t_start
+    print(f'Total evaluation time: {if_time:.2f} seconds')
 
     # save the model
-    model.save_model()
+    #model.save_model()
+
+    return device, tr_time, if_time, batch_size, accuracy
+
+def track_model(model:nn.Module, train:bool=True, device=None):
+
+    tracemalloc.start()
+    device, tr_time, if_time, batch_size, accuracy = main(CNN(), True)
+
+    # show how much RAM the above code allocated and the peak usage
+    current, peak =  tracemalloc.get_traced_memory()
+    print(f"Current: {current:0.2f}, Peak: {peak:0.2f}")
+    tracemalloc.stop()
+
+    return f'| Tensorbook | {device} | {tr_time:.2f} | {if_time:.2f} | {batch_size} | {(peak // BYTE_TO_MEGABYTE):0.2f} | {accuracy} | CIFAR-10 |'
+
+# ENTRY POINT
+if __name__ == "__main__":
+    models = [(CNN, True), (MobileNetV2, False)]
+    results = []
+    for model in models:
+        results.append(track_model(model[0], model[1]))
+
+    for result in results:
+        print(result)

@@ -2,6 +2,8 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torchvision
+
 from torch.utils.data import DataLoader
 
 # Define the CNN architecture
@@ -67,10 +69,24 @@ class CNN(nn.Module):
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
 
-        print(f'Accuracy on test images: {100 * correct / total}%')
+
+        accuracy = correct / total
+        print(f'Accuracy on test images: {100 * accuracy}%')
+
+        return accuracy
 
     def save_model(self):
         torch.save(self, 'full_model.pth')
 
     def load_model():
         return torch.load('full_model.pth')
+    
+# Define MobileNetV2 architecture
+class MobileNetV2(nn.Module):
+    def __init__(self, num_classes=10):
+        super(MobileNetV2, self).__init__()
+        self.model = torchvision.models.mobilenet_v2(pretrained=False)
+        self.model.classifier[1] = nn.Linear(self.model.last_channel, num_classes)
+    
+    def forward(self, x):
+        return self.model(x)
