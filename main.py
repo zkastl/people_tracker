@@ -9,12 +9,11 @@ from models import CNN, MobileNetV2
 
 BYTE_TO_MEGABYTE = 1048576
 
-def main(model:nn.Module, train:bool=True):
+def main(model:nn.Module, train:bool=True, batch_size=64):
 
     # Set device
     #device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     device = 'cpu'
-    batch_size = 64
 
     # Create the model and move it to the device
     nn_model = model.to(device)
@@ -39,6 +38,7 @@ def main(model:nn.Module, train:bool=True):
         t_end = time.time()
         tr_time = t_end - t_start
         print(f'Total training time: {tr_time:.2f} seconds')
+    
     else:
         tr_time = float('nan')
 
@@ -51,28 +51,34 @@ def main(model:nn.Module, train:bool=True):
     print(f'Total evaluation time: {if_time:.2f} seconds')
 
     # save the model
-    #model.save_model()
+    model.save_model()
 
     return device, tr_time, if_time, batch_size, accuracy
 
-def track_model(model:nn.Module, train:bool=True, device=None):
+def track_model(model, train:bool=True, batch_size=64, device=None):
 
     tracemalloc.start()
-    device, tr_time, if_time, batch_size, accuracy = main(CNN(), True)
+    device, tr_time, if_time, bs, accuracy = main(model, train, batch_size=batch_size)
 
     # show how much RAM the above code allocated and the peak usage
     current, peak =  tracemalloc.get_traced_memory()
     print(f"Current: {current:0.2f}, Peak: {peak:0.2f}")
     tracemalloc.stop()
 
-    return f'| Tensorbook | {device} | {tr_time:.2f} | {if_time:.2f} | {batch_size} | {(peak // BYTE_TO_MEGABYTE):0.2f} | {accuracy} | CIFAR-10 |'
+    return f'| {model.identifier} | {device} | {tr_time:.2f} | {if_time:.2f} | {batch_size} | {(peak // BYTE_TO_MEGABYTE):0.2f} | {accuracy} | CIFAR-10 |'
 
 # ENTRY POINT
 if __name__ == "__main__":
-    models = [(CNN, True), (MobileNetV2, False)]
+    
+    models = [
+        (CNN(), True, 8),
+        (MobileNetV2(), True, 64)
+        ]
+    
     results = []
+
     for model in models:
-        results.append(track_model(model[0], model[1]))
+        results.append(track_model(model[0], model[1], model[2]))
 
     for result in results:
         print(result)
